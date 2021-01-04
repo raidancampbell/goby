@@ -1,5 +1,7 @@
 package cpu
 
+import "fmt"
+
 // thank goodness macros exist.  don't build this table by hand!
 var table = map[byte]opcode{
 	0x31: op31,
@@ -53,6 +55,16 @@ var table = map[byte]opcode{
 	0x50: op50,
 }
 
+// verify opcodes
+func init() {
+	// coarse timing verification
+	for b := range table {
+		if table[b].cycles4 < 4 || table[b].cycles4 % 4 != 0 {
+			panic(fmt.Sprintf("malformed opcode: %+v", table[b]))
+		}
+	}
+}
+
 type opcode struct {
 	length  uint8 // how many bytes long is the instruction
 	cycles4 uint8 // 4MHz cycles. all opcodes should be divisible by 4,
@@ -60,11 +72,13 @@ type opcode struct {
 	// The 4MHz rate is used in the PPU
 	label string        // for human readability
 	value byte          // what's the machine code value to invoke this instruction.  like 0x00 is a NOP
-	impl  func() uint16 // the opcode implementation
+	impl  func() // the opcode implementation
 	// ALL opcodes will change the CPU's program counter register
 	// MOST opcodes will change other registers or memory
 	// SOME opcodes will read ahead (e.g. opcodes that take more than one byte)
 	// so opcodes need good accessibility to registers and memory
+	// stack pointer will be incremented by 1 BEFORE execution.
+	// if a one byte arg is required, read at sp, then increment once complete
 }
 
 //op31 loads the given word into the stack pointer register
@@ -73,6 +87,11 @@ var op31 = opcode{
 	cycles4: 12,
 	label:   "LD SP, d16",
 	value:   0x31,
+	impl: func() {
+		// no flag changes
+		// stack pointer is clobbered, so it doesn't matter
+		c.sp = uint16(c.ram[c.sp+1]) | (uint16(c.ram[c.sp+2])<<8)
+	},
 }
 
 //opaf XORs the given A register (given by the opcode) with the implicit A register
@@ -82,6 +101,13 @@ var opaf = opcode{
 	cycles4: 4,
 	label:   "XOR A",
 	value:   0xAF,
+	impl: func() {
+		c.accFlagReg[0] = 0x00
+		c.setFlag(flagZero, true)
+		c.setFlag(flagSubtract, false)
+		c.setFlag(flagCarry, false)
+		c.setFlag(flagHalfCarry, false)
+	},
 }
 
 //op21 loads the given word into the HL register
@@ -90,6 +116,13 @@ var op21 = opcode{
 	cycles4: 12,
 	label:   "LD HL,d16",
 	value:   0x21,
+	impl: func() {
+		// no flag changes
+		c.hlREG[1] = c.ram[c.sp]
+		c.sp++
+		c.hlREG[0] = c.ram[c.sp]
+		c.sp++
+	},
 }
 
 //op32 loads A into address pointed to by HL.  HL is then decremented
@@ -100,6 +133,10 @@ var op32 = opcode{
 	cycles4: 8,
 	label:   "LD (HL-),A",
 	value:   0x32,
+	impl: func() {
+		// no flag changes
+		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
+	},
 }
 
 //opcb is the prefix instruction to a secondary table of opcodes
