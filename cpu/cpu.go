@@ -14,6 +14,7 @@ type CPU struct {
 	accFlagReg          REG    // AF
 	bcREG, deREG, hlREG REG    // BC, DE, HL
 	ram                 mem.RAM
+	interruptEnabled 	bool
 }
 
 //setFlag sets the given bit in the flag register to the given value (i.e. setFlag can clear a bit)

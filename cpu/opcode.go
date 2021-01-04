@@ -59,7 +59,7 @@ var table = map[byte]opcode{
 func init() {
 	// coarse timing verification
 	for b := range table {
-		if table[b].cycles4 < 4 || table[b].cycles4 % 4 != 0 {
+		if table[b].cycles4 < 4 || table[b].cycles4%4 != 0 {
 			panic(fmt.Sprintf("malformed opcode: %+v", table[b]))
 		}
 	}
@@ -70,14 +70,14 @@ type opcode struct {
 	cycles4 uint8 // 4MHz cycles. all opcodes should be divisible by 4,
 	// as that's the clock rate used for executing the opcodes.
 	// The 4MHz rate is used in the PPU
-	label string        // for human readability
-	value byte          // what's the machine code value to invoke this instruction.  like 0x00 is a NOP
+	label string // for human readability
+	value byte   // what's the machine code value to invoke this instruction.  like 0x00 is a NOP
 	impl  func() // the opcode implementation
 	// ALL opcodes will change the CPU's program counter register
 	// MOST opcodes will change other registers or memory
 	// SOME opcodes will read ahead (e.g. opcodes that take more than one byte)
 	// so opcodes need good accessibility to registers and memory
-	// stack pointer will be incremented by 1 BEFORE execution.
+	// each instruction must leave the stack pointer in a position for the next instruction to be read
 	// if a one byte arg is required, read at sp, then increment once complete
 }
 
@@ -90,7 +90,7 @@ var op31 = opcode{
 	impl: func() {
 		// no flag changes
 		// stack pointer is clobbered, so it doesn't matter
-		c.sp = uint16(c.ram[c.sp+1]) | (uint16(c.ram[c.sp+2])<<8)
+		c.sp = uint16(c.ram[c.sp+1]) | (uint16(c.ram[c.sp+2]) << 8)
 	},
 }
 
@@ -107,6 +107,7 @@ var opaf = opcode{
 		c.setFlag(flagSubtract, false)
 		c.setFlag(flagCarry, false)
 		c.setFlag(flagHalfCarry, false)
+		c.sp++
 	},
 }
 
@@ -118,6 +119,7 @@ var op21 = opcode{
 	value:   0x21,
 	impl: func() {
 		// no flag changes
+		c.sp++
 		c.hlREG[1] = c.ram[c.sp]
 		c.sp++
 		c.hlREG[0] = c.ram[c.sp]
@@ -136,6 +138,7 @@ var op32 = opcode{
 	impl: func() {
 		// no flag changes
 		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
+		c.sp++
 	},
 }
 
@@ -145,6 +148,10 @@ var opcb = opcode{
 	cycles4: 1,
 	label:   "PREFIX CB",
 	value:   0xCB,
+	impl: func() {
+		c.sp++
+		panic("TODO: CB opcode wrapper unimplemented")
+	},
 }
 
 //op20 jumps to the given address if the Z flag is NOT set
@@ -154,6 +161,18 @@ var op20 = opcode{
 	cycles4: 8, //todo: 12 if jump is taken
 	label:   "JR NZ,r8",
 	value:   0x20,
+	impl: func() {
+		// no flag changes
+		c.sp++
+		if c.getFlag(flagZero) {
+			relJump := c.ram[c.sp]
+			if relJump < 0 {
+				c.sp -= uint16(relJump)
+			} else {
+				c.sp += uint16(relJump)
+			}
+		}
+	},
 }
 
 //opfb enables interrupts
@@ -162,6 +181,10 @@ var opfb = opcode{
 	cycles4: 4,
 	label:   "ei",
 	value:   0xFB,
+	impl: func() {
+		// no flag changes
+		c.interruptEnabled = true
+	},
 }
 
 //op0e loads the immediate 8-bit value d8 into the C register
@@ -170,6 +193,11 @@ var op0e = opcode{
 	cycles4: 8,
 	label:   "LD C,d8",
 	value:   0x0E,
+	impl: func() {
+		// no flag changes
+		c.sp++
+		c.bcREG[1] = c.ram[c.sp]
+	},
 }
 
 //op3e loads the immediate 8-bit value d8 into the A register
@@ -178,16 +206,23 @@ var op3e = opcode{
 	cycles4: 8,
 	label:   "LD A,d8",
 	value:   0x3E,
+	impl: func() {
+		// no flag changes
+		c.sp++
+		c.accFlagReg[0] = c.ram[c.sp]
+	},
 }
 
 //ope2 loads the value from A to the $(FF00 + $C) address
-//TODO: why is this length 2?
-//	some references have it as length1. keeping as length 1
 var ope2 = opcode{
 	length:  1,
 	cycles4: 8,
 	label:   "LD (C),A",
 	value:   0xE2,
+	impl: func() {
+		// no flag changes
+		c.ram.WriteByte(0xFF00+uint16(c.bcREG[1]), c.accFlagReg[0])
+	},
 }
 
 //op0c increments the C register
@@ -196,6 +231,16 @@ var op0c = opcode{
 	cycles4: 4,
 	label:   "INC C",
 	value:   0x0C,
+	impl: func() {
+		//Z0H flags
+		c.bcREG[1]++
+		c.setFlag(flagZero, c.bcREG[1] == 0x00)
+		c.setFlag(flagSubtract, false)
+
+		// take original lower nibble, add one, check if the result is greater than 0xF
+		didHalfCarry := (c.bcREG[1]-1)&0xF+(1&0xF) > 0xF
+		c.setFlag(flagHalfCarry, didHalfCarry)
+	},
 }
 
 //op77 loads A into the address pointed to by HL
@@ -204,14 +249,23 @@ var op77 = opcode{
 	cycles4: 8,
 	label:   "LD (HL), A",
 	value:   0x77,
+	impl: func() {
+		// no flag changes
+		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
+	},
 }
 
 //ope0 loads A into the $(FF00+a8) address, where a8 is an immediate 8-bit value
 var ope0 = opcode{
-	length:  1,
+	length:  2,
 	cycles4: 12,
 	label:   "LDH (a8), A", // LD ($FF00+a8), A
 	value:   0xE0,
+	impl: func() {
+		// no flag changes
+		c.sp++
+		c.ram.WriteByte(0xFF00+uint16(c.ram[c.sp]), c.accFlagReg[0])
+	},
 }
 
 //op11 loads the immediate d16 word into the DE register-tuple
@@ -220,6 +274,13 @@ var op11 = opcode{
 	cycles4: 12,
 	label:   "LD DE, d16",
 	value:   0x11,
+	impl: func() {
+		// no flag changes
+		c.deREG[1] = c.ram[c.sp]
+		c.sp++
+		c.hlREG[0] = c.ram[c.sp]
+		c.sp++
+	},
 }
 
 //op1a loads the value pointed to by the contents of the double-register DE
