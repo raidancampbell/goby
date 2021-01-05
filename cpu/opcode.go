@@ -156,6 +156,8 @@ var opcb = opcode{
 
 //op20 jumps to the given address if the Z flag is NOT set
 //todo: r8 is relative 8-bit, and SIGNED, so this can likely jump forward or backward
+// also, when is the stack pointer updated? this is a relative jump in an instruction of length 2
+// current implementation jumps from AFTER the instruction, i.e. instr+1, then jump.
 var op20 = opcode{
 	length:  2,
 	cycles4: 8, //todo: 12 if jump is taken
@@ -165,6 +167,7 @@ var op20 = opcode{
 		// no flag changes
 		c.sp++
 		if c.getFlag(flagZero) {
+			c.sp++
 			relJump := c.ram[c.sp]
 			if relJump < 0 {
 				c.sp -= uint16(relJump)
@@ -183,6 +186,7 @@ var opfb = opcode{
 	value:   0xFB,
 	impl: func() {
 		// no flag changes
+		c.sp++
 		c.interruptEnabled = true
 	},
 }
@@ -197,6 +201,7 @@ var op0e = opcode{
 		// no flag changes
 		c.sp++
 		c.bcREG[1] = c.ram[c.sp]
+		c.sp++
 	},
 }
 
@@ -210,6 +215,7 @@ var op3e = opcode{
 		// no flag changes
 		c.sp++
 		c.accFlagReg[0] = c.ram[c.sp]
+		c.sp++
 	},
 }
 
@@ -221,6 +227,7 @@ var ope2 = opcode{
 	value:   0xE2,
 	impl: func() {
 		// no flag changes
+		c.sp++
 		c.ram.WriteByte(0xFF00+uint16(c.bcREG[1]), c.accFlagReg[0])
 	},
 }
@@ -233,6 +240,7 @@ var op0c = opcode{
 	value:   0x0C,
 	impl: func() {
 		//Z0H flags
+		c.sp++
 		c.bcREG[1]++
 		c.setFlag(flagZero, c.bcREG[1] == 0x00)
 		c.setFlag(flagSubtract, false)
@@ -251,6 +259,7 @@ var op77 = opcode{
 	value:   0x77,
 	impl: func() {
 		// no flag changes
+		c.sp++
 		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
 	},
 }
@@ -276,6 +285,7 @@ var op11 = opcode{
 	value:   0x11,
 	impl: func() {
 		// no flag changes
+		c.sp++
 		c.deREG[1] = c.ram[c.sp]
 		c.sp++
 		c.hlREG[0] = c.ram[c.sp]
