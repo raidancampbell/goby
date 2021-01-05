@@ -78,7 +78,7 @@ type opcode struct {
 	// SOME opcodes will read ahead (e.g. opcodes that take more than one byte)
 	// so opcodes need good accessibility to registers and memory
 	// each instruction must leave the stack pointer in a position for the next instruction to be read
-	// if a one byte arg is required, read at sp, then increment once complete
+	// if a one byte arg is required, read at pc, then increment once complete
 }
 
 //op31 loads the given word into the stack pointer register
@@ -90,7 +90,7 @@ var op31 = opcode{
 	impl: func() {
 		// no flag changes
 		// stack pointer is clobbered, so it doesn't matter
-		c.sp = uint16(c.ram[c.sp+1]) | (uint16(c.ram[c.sp+2]) << 8)
+		c.pc = uint16(c.ram[c.pc+1]) | (uint16(c.ram[c.pc+2]) << 8)
 	},
 }
 
@@ -107,7 +107,7 @@ var opaf = opcode{
 		c.setFlag(flagSubtract, false)
 		c.setFlag(flagCarry, false)
 		c.setFlag(flagHalfCarry, false)
-		c.sp++
+		c.pc++
 	},
 }
 
@@ -119,11 +119,11 @@ var op21 = opcode{
 	value:   0x21,
 	impl: func() {
 		// no flag changes
-		c.sp++
-		c.hlREG[1] = c.ram[c.sp]
-		c.sp++
-		c.hlREG[0] = c.ram[c.sp]
-		c.sp++
+		c.pc++
+		c.hlREG[1] = c.ram[c.pc]
+		c.pc++
+		c.hlREG[0] = c.ram[c.pc]
+		c.pc++
 	},
 }
 
@@ -138,7 +138,7 @@ var op32 = opcode{
 	impl: func() {
 		// no flag changes
 		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
-		c.sp++
+		c.pc++
 	},
 }
 
@@ -149,7 +149,7 @@ var opcb = opcode{
 	label:   "PREFIX CB",
 	value:   0xCB,
 	impl: func() {
-		c.sp++
+		c.pc++
 		panic("TODO: CB opcode wrapper unimplemented")
 	},
 }
@@ -165,14 +165,14 @@ var op20 = opcode{
 	value:   0x20,
 	impl: func() {
 		// no flag changes
-		c.sp++
+		c.pc++
 		if c.getFlag(flagZero) {
-			c.sp++
-			relJump := c.ram[c.sp]
+			c.pc++
+			relJump := c.ram[c.pc]
 			if relJump < 0 {
-				c.sp -= uint16(relJump)
+				c.pc -= uint16(relJump)
 			} else {
-				c.sp += uint16(relJump)
+				c.pc += uint16(relJump)
 			}
 		}
 	},
@@ -186,7 +186,7 @@ var opfb = opcode{
 	value:   0xFB,
 	impl: func() {
 		// no flag changes
-		c.sp++
+		c.pc++
 		c.interruptEnabled = true
 	},
 }
@@ -199,9 +199,9 @@ var op0e = opcode{
 	value:   0x0E,
 	impl: func() {
 		// no flag changes
-		c.sp++
-		c.bcREG[1] = c.ram[c.sp]
-		c.sp++
+		c.pc++
+		c.bcREG[1] = c.ram[c.pc]
+		c.pc++
 	},
 }
 
@@ -213,9 +213,9 @@ var op3e = opcode{
 	value:   0x3E,
 	impl: func() {
 		// no flag changes
-		c.sp++
-		c.accFlagReg[0] = c.ram[c.sp]
-		c.sp++
+		c.pc++
+		c.accFlagReg[0] = c.ram[c.pc]
+		c.pc++
 	},
 }
 
@@ -227,7 +227,7 @@ var ope2 = opcode{
 	value:   0xE2,
 	impl: func() {
 		// no flag changes
-		c.sp++
+		c.pc++
 		c.ram.WriteByte(0xFF00+uint16(c.bcREG[1]), c.accFlagReg[0])
 	},
 }
@@ -240,7 +240,7 @@ var op0c = opcode{
 	value:   0x0C,
 	impl: func() {
 		//Z0H flags
-		c.sp++
+		c.pc++
 		c.bcREG[1]++
 		c.setFlag(flagZero, c.bcREG[1] == 0x00)
 		c.setFlag(flagSubtract, false)
@@ -259,7 +259,7 @@ var op77 = opcode{
 	value:   0x77,
 	impl: func() {
 		// no flag changes
-		c.sp++
+		c.pc++
 		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
 	},
 }
@@ -272,8 +272,8 @@ var ope0 = opcode{
 	value:   0xE0,
 	impl: func() {
 		// no flag changes
-		c.sp++
-		c.ram.WriteByte(0xFF00+uint16(c.ram[c.sp]), c.accFlagReg[0])
+		c.pc++
+		c.ram.WriteByte(0xFF00+uint16(c.ram[c.pc]), c.accFlagReg[0])
 	},
 }
 
@@ -285,11 +285,11 @@ var op11 = opcode{
 	value:   0x11,
 	impl: func() {
 		// no flag changes
-		c.sp++
-		c.deREG[1] = c.ram[c.sp]
-		c.sp++
-		c.hlREG[0] = c.ram[c.sp]
-		c.sp++
+		c.pc++
+		c.deREG[1] = c.ram[c.pc]
+		c.pc++
+		c.deREG[0] = c.ram[c.pc]
+		c.pc++
 	},
 }
 
@@ -299,6 +299,11 @@ var op1a = opcode{
 	cycles4: 8,
 	label:   "LD A, (DE)",
 	value:   0x1A,
+	impl: func() {
+		// no flag changes
+		c.pc++
+		c.accFlagReg[0] = c.ram.ReadByte(c.deREG.toUint16())
+	},
 }
 
 //opcd pushes the next address onto the stack, then jump to the given 16 bit address
@@ -309,11 +314,23 @@ var opcd = opcode{
 	cycles4: 24,
 	label:   "CALL a16",
 	value:   0xCD,
+	impl: func() {
+		//no flag changes
+		c.pc++
+		// TODO: verify endianness
+		jumpTo := uint16(c.ram.ReadByte(c.pc)) | uint16(c.ram.ReadByte(c.pc+1))<<8
+		c.pc++
+
+		c.sp-=2
+		c.ram.WriteWord(c.sp, c.pc)
+
+		c.pc = jumpTo
+	},
 }
 
 //op13 increments the word in the DE register-tuple
 var op13 = opcode{
-	length:  3,
+	length:  1,
 	cycles4: 8,
 	label:   "INC DE",
 	value:   0x13,

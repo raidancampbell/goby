@@ -19,3 +19,7 @@ func (r *RAM) WriteWord(addr, val uint16) {
 func (r *RAM) WriteByte(addr uint16, val byte) {
 	r.doWrite(addr, []byte{val})
 }
+
+func (r *RAM) ReadByte(addr uint16) byte {
+	return r[addr]
+}
