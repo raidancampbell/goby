@@ -1,11 +1,18 @@
 package cpu
 
-import "github.com/raidancampbell/goby/mem"
+import (
+	"github.com/raidancampbell/goby/mem"
+)
 
 type REG [2]byte
 
 func (r REG) toUint16() uint16 {
-	return (uint16(r[0]) << 8) + uint16(r[1])
+	return (uint16(r[1]) << 8) + uint16(r[0])
+}
+
+func (r REG) fromUint16(u uint16) {
+	r[0] = byte(u)
+	r[1] = byte(u >> 8)
 }
 
 type CPU struct {

@@ -166,14 +166,15 @@ var op20 = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		if c.getFlag(flagZero) {
-			c.pc++
+		if !c.getFlag(flagZero) {
 			relJump := c.ram[c.pc]
 			if relJump < 0 {
 				c.pc -= uint16(relJump)
 			} else {
 				c.pc += uint16(relJump)
 			}
+		} else {
+			c.pc++
 		}
 	},
 }
@@ -334,6 +335,11 @@ var op13 = opcode{
 	cycles4: 8,
 	label:   "INC DE",
 	value:   0x13,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.deREG.fromUint16(c.deREG.toUint16()+1)
+	},
 }
 
 //op7b loads the value from register E into register A
@@ -342,6 +348,11 @@ var op7b = opcode{
 	cycles4: 4,
 	label:   "LD A, E",
 	value:   0x7B,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.accFlagReg[0] = c.deREG[1]
+	},
 }
 
 //opfe compares A with the given immediate data byte
@@ -350,6 +361,18 @@ var opfe = opcode{
 	cycles4: 8,
 	label:   "CP d8",
 	value:   0xfe,
+	impl: func() {
+		//Z 1 H C
+		c.pc++
+		res := c.accFlagReg[0] - c.ram.ReadByte(c.pc)
+		c.setFlag(flagZero, res == 0)
+		c.setFlag(flagSubtract, true)
+
+		c.setFlag(flagHalfCarry, (c.accFlagReg[0] & 0xF) > (c.ram.ReadByte(c.pc) & 0xF))
+
+		c.setFlag(flagCarry, res < 0)
+		c.pc++
+	},
 }
 
 //op06 loads the given immediate data byte into register B
@@ -358,6 +381,12 @@ var op06 = opcode{
 	cycles4: 8,
 	label:   "LD B, d8",
 	value:   0x06,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.bcREG[0] = c.ram.ReadByte(c.pc)
+		c.pc++
+	},
 }
 
 //op23 increments the word in the HL register-tuple
@@ -366,6 +395,11 @@ var op23 = opcode{
 	cycles4: 8,
 	label:   "INC HL",
 	value:   0x23,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.hlREG.fromUint16(c.hlREG.toUint16()+1)
+	},
 }
 
 //op05 decrements the value in register B
@@ -374,6 +408,14 @@ var op05 = opcode{
 	cycles4: 4,
 	label:   "DEC B",
 	value:   0x05,
+	impl: func() {
+		//Z1H
+		c.pc++
+		c.setFlag(flagHalfCarry, c.bcREG[0]&0xF == 0)
+		c.bcREG[0]--
+		c.setFlag(flagZero, c.bcREG[0] == 0)
+		c.setFlag(flagSubtract, true)
+	},
 }
 
 //opea loads the value from register A into the given 16-bit address
@@ -382,6 +424,13 @@ var opea = opcode{
 	cycles4: 16,
 	label:   "LD (a16), A",
 	value:   0xEA,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		targetAddr := uint16(c.ram.ReadByte(c.pc)) | uint16(c.ram.ReadByte(c.pc+1))<<8
+		c.pc+=2
+		c.ram.WriteByte(targetAddr, c.accFlagReg[0])
+	},
 }
 
 //op3d decrements the contents of register A
@@ -390,6 +439,14 @@ var op3d = opcode{
 	cycles4: 4,
 	label:   "DEC A",
 	value:   0x3d,
+	impl: func() {
+		//Z1H
+		c.pc++
+		c.setFlag(flagHalfCarry, c.accFlagReg[0]&0xF == 0)
+		c.accFlagReg[0]--
+		c.setFlag(flagZero, c.accFlagReg[0] == 0)
+		c.setFlag(flagSubtract, true)
+	},
 }
 
 //op28 jumps to the given relative address if the Z flag is set
@@ -398,6 +455,20 @@ var op28 = opcode{
 	cycles4: 8, //12 if jump is taken
 	label:   "JR Z, r8",
 	value:   0x28,
+	impl: func() {
+		// no flag changes
+		c.pc++
+		if c.getFlag(flagZero) {
+			relJump := c.ram[c.pc]
+			if relJump < 0 {
+				c.pc -= uint16(relJump)
+			} else {
+				c.pc += uint16(relJump)
+			}
+		} else {
+			c.pc++
+		}
+	},
 }
 
 //op0d decrements the contents of register C
@@ -406,6 +477,14 @@ var op0d = opcode{
 	cycles4: 4,
 	label:   "DEC C",
 	value:   0x0D,
+	impl: func() {
+		//Z1H
+		c.pc++
+		c.setFlag(flagHalfCarry, c.bcREG[1]&0xF == 0)
+		c.bcREG[1]--
+		c.setFlag(flagZero, c.bcREG[1] == 0)
+		c.setFlag(flagSubtract, true)
+	},
 }
 
 //op2e loads the given immediate byte into register L
@@ -414,6 +493,12 @@ var op2e = opcode{
 	cycles4: 8,
 	label:   "LD L, d8",
 	value:   0x2e,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.hlREG[1] = c.ram.ReadByte(c.pc)
+		c.pc++
+	},
 }
 
 //op18 jumps to the given relative address
@@ -422,6 +507,17 @@ var op18 = opcode{
 	cycles4: 12,
 	label:   "JR r8",
 	value:   0x18,
+	impl: func() {
+		// no flag changes
+		c.pc++
+		relJump := c.ram[c.pc]
+		c.pc++
+		if relJump < 0 {
+			c.pc -= uint16(relJump)
+		} else {
+			c.pc += uint16(relJump)
+		}
+	},
 }
 
 //op67 loads the value from register A into register H
@@ -430,6 +526,12 @@ var op67 = opcode{
 	cycles4: 4,
 	label:   "LD H, A",
 	value:   0x67,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.hlREG[0] = c.accFlagReg[0]
+		c.pc++
+	},
 }
 
 //op04 increments the contents of register B
@@ -438,6 +540,18 @@ var op04 = opcode{
 	cycles4: 4,
 	label:   "INC B",
 	value:   0x04,
+	impl: func() {
+		//Z0H flags
+		c.pc++
+		c.bcREG[0]++
+		c.setFlag(flagZero, c.bcREG[0] == 0x00)
+		c.setFlag(flagSubtract, false)
+
+		// take original lower nibble, add one, check if the result is greater than 0xF
+		didHalfCarry := (c.bcREG[0]-1)&0xF+(1&0xF) > 0xF
+		c.setFlag(flagHalfCarry, didHalfCarry)
+	},
+
 }
 
 //op1e loads the given immediate byte into register E
@@ -446,15 +560,27 @@ var op1e = opcode{
 	cycles4: 8,
 	label:   "LD E, d8",
 	value:   0x1E,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.deREG[1] = c.ram.ReadByte(c.pc)
+		c.pc++
+	},
 }
 
 //opf0 loads the $(FF00+a8) address into A
-//TODO: verify if this is the address itself, or the contents of the address
 var opf0 = opcode{
 	length:  2,
 	cycles4: 12,
 	label:   "LDH A, (a8)",
 	value:   0xF0,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		contents := c.ram.ReadByte(0xFF00+uint16(c.ram.ReadByte(c.pc)))
+		c.accFlagReg[0] = contents
+		c.pc++
+	},
 }
 
 //op1d decrements the value in register E
@@ -463,6 +589,14 @@ var op1d = opcode{
 	cycles4: 4,
 	label:   "DEC E",
 	value:   0x05,
+	impl: func() {
+		//Z1H
+		c.pc++
+		c.setFlag(flagHalfCarry, c.deREG[1]&0xF == 0)
+		c.deREG[1]--
+		c.setFlag(flagZero, c.deREG[1] == 0)
+		c.setFlag(flagSubtract, true)
+	},
 }
 
 //op24 increments the value in register H
@@ -471,6 +605,18 @@ var op24 = opcode{
 	cycles4: 4,
 	label:   "INC H",
 	value:   0x24,
+	impl: func() {
+		//Z0H flags
+		c.pc++
+		c.hlREG[0]++
+		c.setFlag(flagZero, c.hlREG[0] == 0x00)
+		c.setFlag(flagSubtract, false)
+
+		// take original lower nibble, add one, check if the result is greater than 0xF
+		didHalfCarry := (c.hlREG[0]-1)&0xF+(1&0xF) > 0xF
+		c.setFlag(flagHalfCarry, didHalfCarry)
+	},
+
 }
 
 //op7c loads the contents of register H into register A
@@ -479,6 +625,12 @@ var op7c = opcode{
 	cycles4: 4,
 	label:   "LD A, H",
 	value:   0x7C,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.accFlagReg[0] = c.hlREG[0]
+		c.pc++
+	},
 }
 
 //op90 subtracts the contents of register B from register A
@@ -487,6 +639,16 @@ var op90 = opcode{
 	cycles4: 4,
 	label:   "SUB B",
 	value:   0x90,
+	impl: func() {
+		//Z1HC
+		c.pc++
+		c.setFlag(flagHalfCarry, int16(c.accFlagReg[0]&0xF) - int16(c.bcREG[0]&0xF) < 0)
+		c.setFlag(flagCarry, c.bcREG[0] > c.accFlagReg[0])
+		c.accFlagReg[0] -= c.bcREG[0]
+		c.setFlag(flagZero, c.accFlagReg[0] == 0)
+		c.setFlag(flagSubtract, true)
+	},
+
 }
 
 //op42 loads the contents of register D into register B
@@ -495,6 +657,11 @@ var op42 = opcode{
 	cycles4: 4,
 	label:   "LD B, D",
 	value:   0x42,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.bcREG[0] = c.deREG[0]
+	},
 }
 
 //op15 decrements the value in register D
@@ -503,6 +670,14 @@ var op15 = opcode{
 	cycles4: 4,
 	label:   "DEC D",
 	value:   0x15,
+	impl: func() {
+		//Z1H
+		c.pc++
+		c.setFlag(flagHalfCarry, c.deREG[0]&0xF == 0)
+		c.deREG[0]--
+		c.setFlag(flagZero, c.deREG[0] == 0)
+		c.setFlag(flagSubtract, true)
+	},
 }
 
 //op16 loads the given immediate byte into register D
@@ -511,6 +686,12 @@ var op16 = opcode{
 	cycles4: 8,
 	label:   "LD D, d8",
 	value:   0x16,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.bcREG[0] = c.ram.ReadByte(c.pc)
+		c.pc++
+	},
 }
 
 //op17 rotates register A left through the carry flag
