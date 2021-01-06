@@ -38,6 +38,25 @@ func (c *CPU) getFlag(flag uint8) bool {
 	return (c.accFlagReg[1] & (1 << flag)) > 0
 }
 
+func (c *CPU) popWord() uint16 {
+	val := uint16(c.ram[c.sp]) | (uint16(c.ram[c.pc+1]) << 8)
+	c.sp += 2
+	return val
+}
+
+func (c *CPU) pushWord(word uint16) {
+	high := byte(word >> 8)
+	low := byte(word & 0xFF)
+	c.pushBytes(low, high)
+}
+
+func (c *CPU) pushBytes(low, high byte) {
+	c.ram.WriteByte(c.sp, high)
+	c.sp--
+	c.ram.WriteByte(c.sp, low)
+	c.sp--
+}
+
 const (
 	flagZero      = 0x7 //Z
 	flagSubtract  = 0x6 //N

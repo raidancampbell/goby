@@ -138,6 +138,7 @@ var op32 = opcode{
 	impl: func() {
 		// no flag changes
 		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
+		c.hlREG.fromUint16(c.hlREG.toUint16()-1)
 		c.pc++
 	},
 }
@@ -530,7 +531,6 @@ var op67 = opcode{
 		//no flags changed
 		c.pc++
 		c.hlREG[0] = c.accFlagReg[0]
-		c.pc++
 	},
 }
 
@@ -629,7 +629,6 @@ var op7c = opcode{
 		//no flags changed
 		c.pc++
 		c.accFlagReg[0] = c.hlREG[0]
-		c.pc++
 	},
 }
 
@@ -700,6 +699,19 @@ var op17 = opcode{
 	cycles4: 4,
 	label:   "RLA",
 	value:   0x17,
+	impl: func() {
+		//000C
+		c.sp++
+		carryFlag := byte(0)
+		if c.getFlag(flagCarry) {
+			carryFlag = 1
+		}
+		c.setFlag(flagCarry, (c.accFlagReg[0] & 0x80) == 0x80)
+		c.accFlagReg[0] = ((c.accFlagReg[0] << 1) & 0xFF) | carryFlag
+		c.setFlag(flagZero, false)
+		c.setFlag(flagSubtract, false)
+		c.setFlag(flagHalfCarry, false)
+	},
 }
 
 //opc5 pushes the BC register-tuple onto the stack
@@ -708,6 +720,11 @@ var opc5 = opcode{
 	cycles4: 16,
 	label:   "PUSH BC",
 	value:   0xC5,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.pushWord(c.bcREG.toUint16())
+	},
 }
 
 //opc1 pops a word off the stack pointer and places the value into the BC register-tuple
@@ -716,6 +733,11 @@ var opc1 = opcode{
 	cycles4: 12,
 	label:   "POP BC",
 	value:   0xC1,
+	impl: func() {
+		//no flags changed
+		c.pc++
+		c.bcREG.fromUint16(c.popWord())
+	},
 }
 
 //op22 loads A into address pointed to by HL.  HL is then incremented
@@ -724,6 +746,12 @@ var op22 = opcode{
 	cycles4: 8,
 	label:   "LD (HL+), A",
 	value:   0x22,
+	impl: func() {
+		// no flag changes
+		c.ram.WriteByte(c.hlREG.toUint16(), c.accFlagReg[0])
+		c.hlREG.fromUint16(c.hlREG.toUint16()+1)
+		c.pc++
+	},
 }
 
 //opc9 returns to the caller by popping a word off the stack and returning to that address
@@ -732,6 +760,11 @@ var opc9 = opcode{
 	cycles4: 16,
 	label:   "RET",
 	value:   0xC9,
+	impl: func() {
+		//no flag changes
+		// PC is getting clobbered, no point in incrementing
+		c.pc = c.popWord()
+	},
 }
 
 //opce adds the given immediate byte to register A, with carry
@@ -740,6 +773,22 @@ var opce = opcode{
 	cycles4: 8,
 	label:   "ADC A, d8",
 	value:   0xCE,
+	impl: func() {
+		//Z0HC
+		c.pc++
+		carry := byte(0)
+		if c.getFlag(flagCarry) {
+			carry = 0x1
+		}
+		res := int16(c.accFlagReg[0] + c.ram.ReadByte(c.pc) + carry)
+
+		c.setFlag(flagZero, res == 0)
+		c.setFlag(flagSubtract, false)
+		c.setFlag(flagHalfCarry, c.accFlagReg[0]&0xF + c.ram.ReadByte(c.pc)&0xF + carry > 0xF)
+		c.setFlag(flagCarry, res > 0xFF)
+		c.accFlagReg[0] = byte(res)
+		c.pc++
+	},
 }
 
 //op7d loads the contents of register L into register A
@@ -748,6 +797,11 @@ var op7d = opcode{
 	cycles4: 4,
 	label:   "LD A, L",
 	value:   0x7D,
+	impl: func() {
+		//no flags set
+		c.pc++
+		c.accFlagReg[0] = c.hlREG[1]
+	},
 }
 
 //op7d loads the contents of register B into register A
@@ -756,6 +810,11 @@ var op78 = opcode{
 	cycles4: 4,
 	label:   "LD A, B",
 	value:   0x7D,
+	impl: func() {
+		//no flags set
+		c.pc++
+		c.accFlagReg[0] = c.bcREG[0]
+	},
 }
 
 //op86 adds the value of the location pointed to by the HL register to the A register
@@ -764,6 +823,19 @@ var op86 = opcode{
 	cycles4: 8,
 	label:   "ADD A, (HL)",
 	value:   0x86,
+	impl: func() {
+		//Z0HC
+		c.pc++
+		other := c.ram.ReadByte(c.hlREG.toUint16())
+
+		res := int16(c.accFlagReg[0] + other)
+
+		c.setFlag(flagZero, res == 0)
+		c.setFlag(flagSubtract, false)
+		c.setFlag(flagHalfCarry, c.accFlagReg[0]&0xF + other&0xF > 0xF)
+		c.setFlag(flagCarry, res > 0xFF)
+		c.accFlagReg[0] = byte(res)
+	},
 }
 
 //op50 loads the value from register B into register D
@@ -772,4 +844,9 @@ var op50 = opcode{
 	cycles4: 4,
 	label:   "LD D, B",
 	value:   0x50,
+	impl: func() {
+		//no flags set
+		c.pc++
+		c.deREG[0] = c.bcREG[0]
+	},
 }
