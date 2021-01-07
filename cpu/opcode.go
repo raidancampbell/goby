@@ -89,8 +89,8 @@ var op31 = opcode{
 	value:   0x31,
 	impl: func() {
 		// no flag changes
-		// stack pointer is clobbered, so it doesn't matter
-		c.pc = uint16(c.ram[c.pc+1]) | (uint16(c.ram[c.pc+2]) << 8)
+		c.sp = uint16(c.ram[c.pc+1]) | (uint16(c.ram[c.pc+2]) << 8)
+		c.pc++
 	},
 }
 
@@ -146,12 +146,16 @@ var op32 = opcode{
 //opcb is the prefix instruction to a secondary table of opcodes
 var opcb = opcode{
 	length:  1,
-	cycles4: 1,
+	cycles4: 4,
 	label:   "PREFIX CB",
 	value:   0xCB,
 	impl: func() {
 		c.pc++
-		panic("TODO: CB opcode wrapper unimplemented")
+		newOp, ok := cbTable[c.ram.ReadByte(c.pc)]
+		if !ok {
+			panic(fmt.Sprintf("unable to find CB opcode %v", c.ram.ReadByte(c.pc)))
+		}
+		newOp.impl()
 	},
 }
 
@@ -319,7 +323,7 @@ var opcd = opcode{
 	impl: func() {
 		//no flag changes
 		c.pc++
-		// TODO: verify endianness
+		// first byte is smaller, second byte is larger. OR'd together, it's little-endian
 		jumpTo := uint16(c.ram.ReadByte(c.pc)) | uint16(c.ram.ReadByte(c.pc+1))<<8
 		c.pc++
 

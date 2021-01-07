@@ -11,8 +11,10 @@ const(
 )
 type ROM []byte
 
-func LoadToRAM(m *mem.RAM) {
-
+func (r *ROM) LoadToRAM(m *mem.RAM) {
+	for i := 0; i < 0x8000; i++ {
+		m[0x100 + i] = (*r)[i]
+	}
 }
 
 func Load(f *os.File) *ROM {

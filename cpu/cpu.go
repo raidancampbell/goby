@@ -1,6 +1,7 @@
 package cpu
 
 import (
+	"fmt"
 	"github.com/raidancampbell/goby/mem"
 )
 
@@ -21,7 +22,23 @@ type CPU struct {
 	accFlagReg          REG    // AF
 	bcREG, deREG, hlREG REG    // BC, DE, HL
 	ram                 mem.RAM
-	interruptEnabled 	bool
+	interruptEnabled    bool
+}
+
+func GetRAM() *mem.RAM {
+	return &c.ram
+}
+
+func DryRun() {
+	for i := 0; ; i++ {
+		opByte := c.ram.ReadByte(c.pc)
+		newOp, ok := table[opByte]
+		if !ok {
+			panic(fmt.Sprintf("unable to find opcode %x", c.ram.ReadByte(c.pc)))
+		}
+		fmt.Printf("executing opcode %x at location %x, execution number %v\n", newOp.value, c.pc, i)
+		newOp.impl()
+	}
 }
 
 //setFlag sets the given bit in the flag register to the given value (i.e. setFlag can clear a bit)
@@ -74,4 +91,8 @@ func init() {
 	c.hlREG = [2]byte{0x01, 0x4d}
 	c.pc = 0x1000
 	c.sp = 0xFFFE
+}
+
+func InitPCForBootrom() {
+	c.pc = 0x0000
 }
