@@ -53,6 +53,7 @@ var table = map[byte]opcode{
 	0x78: op78,
 	0x86: op86,
 	0x50: op50,
+	0x4F: op4f,
 }
 
 // verify opcodes
@@ -280,6 +281,7 @@ var ope0 = opcode{
 		// no flag changes
 		c.pc++
 		c.ram.WriteByte(0xFF00+uint16(c.ram[c.pc]), c.accFlagReg[0])
+		c.pc++
 	},
 }
 
@@ -705,7 +707,7 @@ var op17 = opcode{
 	value:   0x17,
 	impl: func() {
 		//000C
-		c.sp++
+		c.pc++
 		carryFlag := byte(0)
 		if c.getFlag(flagCarry) {
 			carryFlag = 1
@@ -852,5 +854,17 @@ var op50 = opcode{
 		//no flags set
 		c.pc++
 		c.deREG[0] = c.bcREG[0]
+	},
+}
+
+var op4f = opcode{
+	length:  1,
+	cycles4: 4,
+	label:   "LD C, A",
+	value:   0x4F,
+	impl: func() {
+		//no flags set
+		c.pc++
+		c.bcREG[1] = c.accFlagReg[0]
 	},
 }

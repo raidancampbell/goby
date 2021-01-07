@@ -33,10 +33,10 @@ func DryRun() {
 	for i := 0; ; i++ {
 		opByte := c.ram.ReadByte(c.pc)
 		newOp, ok := table[opByte]
+		fmt.Printf("executing opcode %x at location %x, execution number %v\n", opByte, c.pc, i)
 		if !ok {
 			panic(fmt.Sprintf("unable to find opcode %x", c.ram.ReadByte(c.pc)))
 		}
-		fmt.Printf("executing opcode %x at location %x, execution number %v\n", newOp.value, c.pc, i)
 		newOp.impl()
 	}
 }
