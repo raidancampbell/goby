@@ -30,10 +30,10 @@ func GetRAM() *mem.RAM {
 }
 
 func DryRun() {
-	for i := 0; ; i++ {
+	for i := 0; i < 30000; i++ {
 		opByte := c.ram.ReadByte(c.pc)
 		newOp, ok := table[opByte]
-		fmt.Printf("executing opcode %x at location %x, execution number %v\n", opByte, c.pc, i)
+		fmt.Printf("executing opcode %x at location %x, execution number %v\t%s\n", opByte, c.pc, i, newOp.label)
 		if !ok {
 			panic(fmt.Sprintf("unable to find opcode %x", c.ram.ReadByte(c.pc)))
 		}
@@ -56,22 +56,24 @@ func (c *CPU) getFlag(flag uint8) bool {
 }
 
 func (c *CPU) popWord() uint16 {
-	val := uint16(c.ram[c.sp]) | (uint16(c.ram[c.pc+1]) << 8)
+	val := uint16(c.ram.ReadByte(c.sp)) + (uint16(c.ram.ReadByte(c.sp+1)) << 8)
+	fmt.Printf("popped %x from stack addr %x\n", val, c.sp+1)
 	c.sp += 2
 	return val
 }
 
 func (c *CPU) pushWord(word uint16) {
+	fmt.Printf("pushing %x to stack addr %x\n", word, c.sp)
 	high := byte(word >> 8)
 	low := byte(word & 0xFF)
 	c.pushBytes(low, high)
 }
 
 func (c *CPU) pushBytes(low, high byte) {
+	c.sp--
 	c.ram.WriteByte(c.sp, high)
 	c.sp--
 	c.ram.WriteByte(c.sp, low)
-	c.sp--
 }
 
 const (

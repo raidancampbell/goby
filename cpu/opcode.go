@@ -91,7 +91,7 @@ var op31 = opcode{
 	impl: func() {
 		// no flag changes
 		c.sp = uint16(c.ram[c.pc+1]) | (uint16(c.ram[c.pc+2]) << 8)
-		c.pc++
+		c.pc+=3
 	},
 }
 
@@ -153,6 +153,7 @@ var opcb = opcode{
 	impl: func() {
 		c.pc++
 		newOp, ok := cbTable[c.ram.ReadByte(c.pc)]
+		fmt.Printf("executing opcode %x at location %x, execution number ??\t%s\n", newOp.value, c.pc, newOp.label)
 		if !ok {
 			panic(fmt.Sprintf("unable to find CB opcode %v", c.ram.ReadByte(c.pc)))
 		}
@@ -173,12 +174,9 @@ var op20 = opcode{
 		// no flag changes
 		c.pc++
 		if !c.getFlag(flagZero) {
-			relJump := c.ram[c.pc]
-			if relJump < 0 {
-				c.pc -= uint16(relJump)
-			} else {
-				c.pc += uint16(relJump)
-			}
+			relJump := int8(c.ram[c.pc])
+			c.pc++
+			c.pc = uint16(int32(c.pc) + int32(relJump))
 		} else {
 			c.pc++
 		}
@@ -327,10 +325,8 @@ var opcd = opcode{
 		c.pc++
 		// first byte is smaller, second byte is larger. OR'd together, it's little-endian
 		jumpTo := uint16(c.ram.ReadByte(c.pc)) | uint16(c.ram.ReadByte(c.pc+1))<<8
-		c.pc++
-
-		c.sp-=2
-		c.ram.WriteWord(c.sp, c.pc)
+		c.pc+=2
+		c.pushWord(c.pc)
 
 		c.pc = jumpTo
 	},
