@@ -54,6 +54,7 @@ var table = map[byte]opcode{
 	0x86: op86,
 	0x50: op50,
 	0x4F: op4f,
+	0x57: op57,
 }
 
 // verify opcodes
@@ -121,9 +122,12 @@ var op21 = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		c.hlREG[1] = c.ram[c.pc]
+		//e.x. 0x21, 0xFF, 0x9F to load 0x9FFF into HL
+		// in HL, it's stored as H: 9F L: FF
+		// why?
+		c.hlREG[1] = c.ram.ReadByte(c.pc)
 		c.pc++
-		c.hlREG[0] = c.ram[c.pc]
+		c.hlREG[0] = c.ram.ReadByte(c.pc)
 		c.pc++
 	},
 }
@@ -174,7 +178,7 @@ var op20 = opcode{
 		// no flag changes
 		c.pc++
 		if !c.getFlag(flagZero) {
-			relJump := int8(c.ram[c.pc])
+			relJump := int8(c.ram.ReadByte(c.pc))
 			c.pc++
 			c.pc = uint16(int32(c.pc) + int32(relJump))
 		} else {
@@ -205,7 +209,7 @@ var op0e = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		c.bcREG[1] = c.ram[c.pc]
+		c.bcREG[1] = c.ram.ReadByte(c.pc)
 		c.pc++
 	},
 }
@@ -219,7 +223,7 @@ var op3e = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		c.accFlagReg[0] = c.ram[c.pc]
+		c.accFlagReg[0] = c.ram.ReadByte(c.pc)
 		c.pc++
 	},
 }
@@ -292,9 +296,9 @@ var op11 = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		c.deREG[0] = c.ram.ReadByte(c.pc)
-		c.pc++
 		c.deREG[1] = c.ram.ReadByte(c.pc)
+		c.pc++
+		c.deREG[0] = c.ram.ReadByte(c.pc)
 		c.pc++
 	},
 }
@@ -462,12 +466,9 @@ var op28 = opcode{
 		// no flag changes
 		c.pc++
 		if c.getFlag(flagZero) {
-			relJump := c.ram[c.pc]
-			if relJump < 0 {
-				c.pc -= uint16(relJump)
-			} else {
-				c.pc += uint16(relJump)
-			}
+			relJump := int8(c.ram.ReadByte(c.pc))
+			c.pc++
+			c.pc = uint16(int32(c.pc) + int32(relJump))
 		} else {
 			c.pc++
 		}
@@ -513,13 +514,9 @@ var op18 = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		relJump := c.ram[c.pc]
+		relJump := int8(c.ram.ReadByte(c.pc))
 		c.pc++
-		if relJump < 0 {
-			c.pc -= uint16(relJump)
-		} else {
-			c.pc += uint16(relJump)
-		}
+		c.pc = uint16(int32(c.pc) + int32(relJump))
 	},
 }
 
@@ -862,5 +859,17 @@ var op4f = opcode{
 		//no flags set
 		c.pc++
 		c.bcREG[1] = c.accFlagReg[0]
+	},
+}
+
+var op57 = opcode{
+	length:  1,
+	cycles4: 4,
+	label:   "LD D, A",
+	value:   0x57,
+	impl: func() {
+		//no flags set
+		c.pc++
+		c.deREG[0] = c.accFlagReg[0]
 	},
 }

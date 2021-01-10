@@ -3,7 +3,7 @@ package cpu
 // tests the given bit of the given byte
 // all bit opcodes alter flags Z01, where Z is the main meaning of the opcodes
 func testBit(bit, byt byte) {
-	isSet := byt & (1 << bit) > 0
+	isSet := (byt>>bit)&1 == 0
 	c.setFlag(flagZero,  isSet)
 	c.setFlag(flagSubtract, false)
 	c.setFlag(flagHalfCarry, true)

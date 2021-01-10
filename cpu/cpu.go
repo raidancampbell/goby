@@ -1,6 +1,7 @@
 package cpu
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/raidancampbell/goby/mem"
 )
@@ -8,12 +9,19 @@ import (
 type REG [2]byte
 
 func (r *REG) toUint16() uint16 {
-	return (uint16(r[1]) << 8) + uint16(r[0])
+	// registers are big endian, and uint16 representations are big endian.
+	// loads from ROM are little endian
+	// this is done to keep memory access simple
+	// e.g. H: 9F, L: FF yields uint16 9FFF, and can be directly accessed in memory that way
+	return binary.BigEndian.Uint16([]byte{r[0], r[1]})
 }
 
 func (r *REG) fromUint16(u uint16) {
-	r[0] = byte(u & 0xFF)
-	r[1] = byte(u >> 8)
+	// again, uint16 representations are big endian to ease memory access.  see toUint16 for details
+	var tmp = make([]byte, 2)
+	binary.BigEndian.PutUint16(tmp, u)
+	r[0] = tmp[0]
+	r[1] = tmp[1]
 }
 
 type CPU struct {
@@ -30,7 +38,7 @@ func GetRAM() *mem.RAM {
 }
 
 func DryRun() {
-	for i := 0; i < 30000; i++ {
+	for i := 0; i < 90000; i++ {
 		opByte := c.ram.ReadByte(c.pc)
 		newOp, ok := table[opByte]
 		fmt.Printf("executing opcode %x at location %x, execution number %v\t%s\n", opByte, c.pc, i, newOp.label)
