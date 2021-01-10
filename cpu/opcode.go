@@ -278,7 +278,7 @@ var ope0 = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		c.ram.WriteByte(0xFF00+uint16(c.ram[c.pc]), c.accFlagReg[0])
+		c.ram.WriteByte(0xFF00+uint16(c.ram.ReadByte(c.pc)), c.accFlagReg[0])
 		c.pc++
 	},
 }
@@ -292,9 +292,9 @@ var op11 = opcode{
 	impl: func() {
 		// no flag changes
 		c.pc++
-		c.deREG[1] = c.ram[c.pc]
+		c.deREG[0] = c.ram.ReadByte(c.pc)
 		c.pc++
-		c.deREG[0] = c.ram[c.pc]
+		c.deREG[1] = c.ram.ReadByte(c.pc)
 		c.pc++
 	},
 }

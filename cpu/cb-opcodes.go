@@ -40,7 +40,7 @@ var opcb4f = opcode{
 	},
 }
 
-//opcb11 rotates left on register C through the carry flagg
+//opcb11 rotates left on register C through the carry flag
 var opcb11 = opcode{
 	length:  2,
 	cycles4: 8,
@@ -50,13 +50,15 @@ var opcb11 = opcode{
 		val := c.bcREG[1]
 		var carry byte
 		var rot byte
-		carry = val >> 7
-		rot = (val<<1)&0xFF | carry
+		if c.getFlag(flagCarry) {
+			carry = 1
+		}
+		rot = ((val<<1)&0xFF) | carry
 		c.bcREG[1] = rot
 		c.setFlag(flagZero, rot == 0)
 		c.setFlag(flagSubtract, false)
 		c.setFlag(flagHalfCarry, false)
-		c.setFlag(flagCarry, carry == 1)
+		c.setFlag(flagCarry, val >> 7 == 1)
 		c.pc++
 	},
 }

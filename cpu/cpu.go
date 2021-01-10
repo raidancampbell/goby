@@ -7,12 +7,12 @@ import (
 
 type REG [2]byte
 
-func (r REG) toUint16() uint16 {
+func (r *REG) toUint16() uint16 {
 	return (uint16(r[1]) << 8) + uint16(r[0])
 }
 
-func (r REG) fromUint16(u uint16) {
-	r[0] = byte(u)
+func (r *REG) fromUint16(u uint16) {
+	r[0] = byte(u & 0xFF)
 	r[1] = byte(u >> 8)
 }
 
@@ -57,16 +57,16 @@ func (c *CPU) getFlag(flag uint8) bool {
 
 func (c *CPU) popWord() uint16 {
 	val := uint16(c.ram.ReadByte(c.sp)) + (uint16(c.ram.ReadByte(c.sp+1)) << 8)
-	fmt.Printf("popped %x from stack addr %x\n", val, c.sp+1)
+	fmt.Printf("popped %x from stack addr %x\n", val, c.sp)
 	c.sp += 2
 	return val
 }
 
 func (c *CPU) pushWord(word uint16) {
-	fmt.Printf("pushing %x to stack addr %x\n", word, c.sp)
 	high := byte(word >> 8)
 	low := byte(word & 0xFF)
 	c.pushBytes(low, high)
+	fmt.Printf("pushed %x to stack addr %x\n", word, c.sp)
 }
 
 func (c *CPU) pushBytes(low, high byte) {
