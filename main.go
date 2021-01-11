@@ -23,5 +23,5 @@ func main() {
 	cpu.LoadBootrom(bootrom)
 	cart.LoadToRAM(cpu.GetRAM())
 	cpu.InitPCForBootrom()
-	cpu.DryRun()
+	cpu.Run()
 }
