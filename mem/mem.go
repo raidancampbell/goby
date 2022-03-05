@@ -1,10 +1,16 @@
 package mem
 
-import "github.com/raidancampbell/goby/cartridge"
+import (
+	"fmt"
+	"github.com/raidancampbell/goby/cartridge"
+)
 
 type RAM [0xFFFF]byte
 
 func (r *RAM) doWrite(addr uint16, data []byte) {
+	if addr < 0x8000 {
+		panic(fmt.Sprintf("attempted write %x to address %x", data, addr))
+	}
 	//TODO: pass off responsibility to the different memory regions
 	//i.e. framebuffer, OAM, etc...
 	for i, b := range data {
@@ -18,7 +24,6 @@ func (r *RAM) LoadCartridge(rom *cartridge.ROM) {
 	for i := 0; i < 0x8000; i++ {
 		r[0x100 + i] = (*rom)[i]
 	}
-
 }
 
 //WriteByte writes the given byte to the given address

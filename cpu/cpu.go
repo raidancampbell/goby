@@ -45,6 +45,10 @@ func GetRAM() *mem.RAM {
 	return &c.ram
 }
 
+func Get() *CPU {
+	return c
+}
+
 //Run begins reading the memory and executing opcodes
 // the bootrom isn't necessary assuming the program counter begins at 0x0100
 func Run() {
