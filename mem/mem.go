@@ -1,5 +1,7 @@
 package mem
 
+import "github.com/raidancampbell/goby/cartridge"
+
 type RAM [0xFFFF]byte
 
 func (r *RAM) doWrite(addr uint16, data []byte) {
@@ -9,6 +11,14 @@ func (r *RAM) doWrite(addr uint16, data []byte) {
 		offset := uint16(i)
 		r[addr+offset] = b
 	}
+}
+
+// LoadCartridge loads the cartridge's ROM into RAM
+func (r *RAM) LoadCartridge(rom *cartridge.ROM) {
+	for i := 0; i < 0x8000; i++ {
+		r[0x100 + i] = (*rom)[i]
+	}
+
 }
 
 //WriteByte writes the given byte to the given address

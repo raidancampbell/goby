@@ -1,7 +1,6 @@
 package cartridge
 
 import (
-	"github.com/raidancampbell/goby/mem"
 	"io/ioutil"
 	"os"
 )
@@ -10,14 +9,6 @@ const(
 	maxROMSize = 0x200000
 )
 type ROM []byte
-
-//LoadToRAM loads the cartridge into RAM
-//Deprecated: this should be inverted: a cartridge should be given to the MMU for the MMU to load
-func (r *ROM) LoadToRAM(m *mem.RAM) {
-	for i := 0; i < 0x8000; i++ {
-		m[0x100 + i] = (*r)[i]
-	}
-}
 
 //Load loads the given cartridge from a file
 //a basic size check is executed

@@ -21,7 +21,7 @@ func main() {
 		panic(err)
 	}
 	cpu.LoadBootrom(bootrom)
-	cart.LoadToRAM(cpu.GetRAM())
+	cpu.GetRAM().LoadCartridge(cart)
 	cpu.InitPCForBootrom()
 	cpu.Run()
 }
